@@ -1,0 +1,3 @@
+cd cmd/basic ; go build
+
+create new load patterns by making new directories under cmd/
