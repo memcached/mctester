@@ -861,6 +861,14 @@ func (c *Client) BinQuitQ() (opaque uint32, err error) {
 	return
 }
 
+// This _could_ just be Flush() and shared, but there might be reasons to hook
+// something protocol specific in here.
+func (c *Client) BinFlush() (err error) {
+	b := c.cn.b
+	err = b.Flush()
+	return err
+}
+
 // don't run this without anything in the queue :P
 func (c *Client) BinReceive(item *Item) (opcode uint8, code McCode, err error) {
 	b := c.cn.b
