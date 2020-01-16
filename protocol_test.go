@@ -24,21 +24,22 @@ func newcli() *Client {
 func TestMeta(t *testing.T) {
 	mc := newcli()
 	{
-		_, c, err := mc.MetaSet("doob", "S4 T300", []byte("foop"))
+		err := mc.MetaSet("doob", "S4 T300", []byte("foop"))
 		if err != nil {
 			t.Fatalf("metaset error: %v", err)
 		}
+		_, _, c, err := mc.MetaReceive()
 		if c != McST {
 			t.Fatalf("metaset not stored: %d", c)
 		}
 	}
 
 	{
-		_, v, _, err := mc.MetaGet("doob", "f v")
-
+		err := mc.MetaGet("doob", "f v")
 		if err != nil {
 			t.Fatalf("metaget error: %v", err)
 		}
+		_, v, _, err := mc.MetaReceive()
 		if !bytes.Equal(v, []byte("foop")) {
 			t.Fatalf("metaget bad value: %s", string(v))
 		}

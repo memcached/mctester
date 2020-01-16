@@ -238,10 +238,7 @@ func (c *Client) runNow(key string, avail int, fn func() error) (err error) {
 	return fn()
 }
 
-// TODO: think I like the get -> receive pattern that I did for binprot...
-// drop all these Pipe() things and just use that instead.
-
-func (c *Client) PipeMetaGet(key string, flags string) (err error) {
+func (c *Client) MetaGet(key string, flags string) (err error) {
 	err = c.runNow(key, len(key)+len(flags)+6, func() error {
 		b := c.cn.b
 		b.WriteString("mg ")
@@ -255,7 +252,7 @@ func (c *Client) PipeMetaGet(key string, flags string) (err error) {
 	return
 }
 
-func (c *Client) PipeMetaSet(key string, flags string, value []byte) (err error) {
+func (c *Client) MetaSet(key string, flags string, value []byte) (err error) {
 	err = c.runNow(key, len(key)+len(flags)+6, func() error {
 		b := c.cn.b
 		b.WriteString("ms ")
@@ -272,7 +269,7 @@ func (c *Client) PipeMetaSet(key string, flags string, value []byte) (err error)
 	return
 }
 
-func (c *Client) PipeMetaDelete(key string, flags string) (err error) {
+func (c *Client) MetaDelete(key string, flags string) (err error) {
 	err = c.runNow(key, len(key)+len(flags)+6, func() error {
 		b := c.cn.b
 		b.WriteString("md ")
@@ -287,7 +284,7 @@ func (c *Client) PipeMetaDelete(key string, flags string) (err error) {
 
 // TODO: MetaDebug can't pipe? doesn't take/return flags.
 
-func (c *Client) PipeMetaNoop() (err error) {
+func (c *Client) MetaNoop() (err error) {
 	err = c.runNow("", 4, func() error {
 		b := c.cn.b
 		b.WriteString("mn\r\n")
@@ -296,7 +293,7 @@ func (c *Client) PipeMetaNoop() (err error) {
 	return
 }
 
-func (c *Client) PipeFlush() (err error) {
+func (c *Client) MetaFlush() (err error) {
 	b := c.cn.b
 	err = b.Flush()
 	return err
@@ -304,91 +301,27 @@ func (c *Client) PipeFlush() (err error) {
 
 // Note: User should stop pulling when they know no more responses will
 // happen, else this will wait forever.
-func (c *Client) PipeMetaRead() (rflags []byte, value []byte, code McCode, err error) {
+func (c *Client) MetaReceive() (rflags []byte, value []byte, code McCode, err error) {
+	b := c.cn.b
+	// Auto flush if there's something buffered.
+	if b.Writer.Buffered() != 0 {
+		if err := b.Flush(); err != nil {
+			return nil, nil, 0, err
+		}
+	}
 	rflags, value, code, err = c.ParseMetaResponse()
 	return
 }
 
-func (c *Client) MetaGet(key string, flags string) (rflags []byte, value []byte, code McCode, err error) {
-	err = c.runNow(key, len(key)+len(flags)+6, func() error {
-		b := c.cn.b
-		b.WriteString("mg ")
-		b.WriteString(key)
-		b.WriteString(" ")
-		b.WriteString(flags)
-		b.WriteString("\r\n")
-		err = b.Flush()
-		if err != nil {
-			return err
-		}
-		rflags, value, code, err = c.ParseMetaResponse()
-		return err
-	})
-
-	//fmt.Printf("flags: %s value: %s code: %d\n", string(lineflags), string(value), code)
-	return
-}
-
-func (c *Client) MetaSet(key string, flags string, value []byte) (rflags []byte, code McCode, err error) {
-	err = c.runNow(key, len(key)+len(flags)+6, func() error {
-		b := c.cn.b
-		b.WriteString("ms ")
-		b.WriteString(key)
-		b.WriteString(" ")
-		b.WriteString(flags)
-		b.WriteString("\r\n")
-		// For large sets this ends up flushing twice.
-		// Change the interface to require \r\n or append or what?
-		_, err = b.Write(value)
-		b.WriteString("\r\n")
-		err = b.Flush()
-
-		rflags, _, code, err = c.ParseMetaResponse()
-		return err
-	})
-	return
-}
-
-func (c *Client) MetaDelete(key string, flags string) (rflags []byte, code McCode, err error) {
-	err = c.runNow(key, len(key)+len(flags)+6, func() error {
-		b := c.cn.b
-		b.WriteString("md ")
-		b.WriteString(key)
-		b.WriteString(" ")
-		b.WriteString(flags)
-		b.WriteString("\r\n")
-		err = b.Flush()
-
-		rflags, _, code, err = c.ParseMetaResponse()
-		return err
-	})
-	return
-}
-
 // TODO: helper func for chopping up result?
-func (c *Client) MetaDebug(key string) (value []byte, code McCode, err error) {
+func (c *Client) MetaDebug(key string) (err error) {
 	err = c.runNow(key, len(key)+5, func() error {
 		b := c.cn.b
 		b.WriteString("me ")
 		b.WriteString(key)
 		b.WriteString("\r\n")
-		err = b.Flush()
 
-		_, value, code, err = c.ParseMetaResponse()
-		return err
-
-	})
-	return
-}
-
-func (c *Client) MetaNoop() (code McCode, err error) {
-	err = c.runNow("", 4, func() error {
-		b := c.cn.b
-		b.WriteString("mn\r\n")
-		err = b.Flush()
-
-		_, _, code, err = c.ParseMetaResponse()
-		return err
+		return nil
 	})
 	return
 }
