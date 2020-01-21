@@ -16,10 +16,25 @@ var memprofile = flag.String("memprofile", "", "dump memory profile")
 
 func main() {
 	fmt.Println("starting")
+
+	connCount := flag.Int("conncount", 1, "number of client connections to establish")
+	reqPerSleep := flag.Int("reqpersleep", 1, "number of requests to issue when client wakes up")
+	reqBundlePerConn := flag.Int("reqbundles", 1, "number of times to wake up and send requests before disconnecting (-1 for unlimited)")
+	sleepPerBundle := flag.Duration("sleepperbundle", time.Millisecond*1, "time to sleep between request bundles (accepts Ns, Nms, etc)")
+	keyPrefix := flag.String("keyprefix", "mctester:", "prefix to append to all generated keys")
+	keySpace := flag.Int("keyspace", 1000, "number of unique keys to generate")
+	keyLength := flag.Int("keylength", 10, "number of random characters to append to key")
+	keyTTL := flag.Uint("ttl", 180, "TTL to set with new items")
+	useZipf := flag.Bool("zipf", false, "use Zipf instead of uniform randomness (slow)")
+	zipfS := flag.Float64("zipfS", 1.01, "zipf S value (general pull toward zero) must be > 1.0")
+	zipfV := flag.Float64("zipfV", float64(*keySpace/2), "zipf V value (pull below this number")
+	valueSize := flag.Uint("valuesize", 1000, "size of value (in bytes) to store on miss")
+	clientFlags := flag.Uint("clietnflags", 0, "(32bit unsigned) client flag bits to set on miss")
+
 	flag.Parse()
 
 	/*
-		// example bit for testing zipf/random string code.
+		// example for testing zipf/random string code.
 		prand := pcgr.New(time.Now().UnixNano(), 0)
 		// s (> 1, generally 1.01-2) pulls the power curve toward 0
 		// v (anything) puts the main part of the curve before this number,
@@ -38,17 +53,19 @@ func main() {
 
 	bl := &BasicLoader{
 		servers:               []string{"127.0.0.1:11211"},
-		desiredConnCount:      750,
-		requestsPerSleep:      50,
-		requestBundlesPerConn: 5,
-		sleepPerBundle:        time.Millisecond * 50,
-		keyMinLength:          30,
-		keyMaxLength:          60,
-		keyPrefix:             "foobarbazqux",
-		keySpace:              100000,
-		useZipf:               true,
-		zipfS:                 1.5,
-		zipfV:                 5,
+		desiredConnCount:      *connCount,
+		requestsPerSleep:      *reqPerSleep,
+		requestBundlesPerConn: *reqBundlePerConn,
+		sleepPerBundle:        *sleepPerBundle,
+		keyLength:             *keyLength,
+		keyPrefix:             *keyPrefix,
+		keySpace:              *keySpace,
+		keyTTL:                *keyTTL,
+		useZipf:               *useZipf,
+		zipfS:                 *zipfS,
+		zipfV:                 *zipfV,
+		valueSize:             *valueSize,
+		clientFlags:           *clientFlags,
 	}
 
 	if *cpuprofile != "" {
@@ -87,13 +104,15 @@ type BasicLoader struct {
 	requestBundlesPerConn int
 	sleepPerBundle        time.Duration
 	setValueSizes         []int
-	keyMinLength          int
-	keyMaxLength          int
+	keyLength             int
 	keyPrefix             string
 	keySpace              int
+	keyTTL                uint
 	useZipf               bool
 	zipfS                 float64 // (> 1, generally 1.01-2) pulls the power curve toward 0)
 	zipfV                 float64 // v (< keySpace) puts the main part of the curve before this number
+	valueSize             uint
+	clientFlags           uint
 }
 
 func (l *BasicLoader) Run() {
@@ -137,7 +156,7 @@ func (l *BasicLoader) Worker(doneChan chan<- int) {
 		}
 	}
 
-	subRS := pcgr.New(1, 0) // randomizer re-seeded for random strings.
+	subRS := pcgr.New(1, 0) // randomizer is re-seeded for random strings.
 	var res int
 	defer func() { doneChan <- res }()
 
@@ -145,18 +164,24 @@ func (l *BasicLoader) Worker(doneChan chan<- int) {
 		bundles--
 		for i := l.requestsPerSleep; i > 0; i-- {
 			// generate keys
-			// TODO: prefix? sep function?
-			// TODO: skip rand if min == max
-			// TODO: How to get key length to match with key space?
-			// use the initial random seed, first value for length, then etc?
-			//keyLen := randR.Intn(l.keyMaxLength - l.keyMinLength) + l.keyMinLength
-			keyLen := 30
+			// TODO: Allow min/max length for keys.
+			// The random key needs to stick with the random length, or we end
+			// up with keySpace * (max-min) number of unique keys.
+			// Need to pull the randomizer exactly once (then just modulus for
+			// a poor-but-probably-fine random value), then build the random
+			// string from the rest.
+			// Could also re-seed it twice, pull once Intn for length,
+			// re-seed, then again for key space.
+
+			keyLen := l.keyLength
 			if l.useZipf {
 				subRS.Seed(int64(zipRS.Uint64()))
 			} else {
 				subRS.Seed(int64(randR.Intn(l.keySpace)))
 			}
-			key := mct.RandString(&subRS, keyLen)
+			// TODO: might be nice to pass (by ref?) prefix in here to make
+			// use of string.Builder.
+			key := l.keyPrefix + mct.RandString(&subRS, keyLen)
 			// issue gets
 			_, _, code, err := mc.Get(key)
 			// validate responses
@@ -167,9 +192,9 @@ func (l *BasicLoader) Worker(doneChan chan<- int) {
 			}
 			// set missing values
 			if code == mct.McMISS {
-				value := mct.RandBytes(&rs, 3000)
-				// TODO: random sizing, TTL, flags
-				mc.Set(key, 0, 180, value)
+				// TODO: random sizing
+				value := mct.RandBytes(&rs, int(l.valueSize))
+				mc.Set(key, uint32(l.clientFlags), uint32(l.keyTTL), value)
 			}
 		}
 		time.Sleep(l.sleepPerBundle)
