@@ -94,19 +94,16 @@ const (
 	_             = iota
 	McCHECK_ERROR // bodge. guessing these should all be in err...
 	McVA
-	McHD
+	McOK
 	McEN
 	McME
-	McST
 	McNS
 	McEX
 	McNF
-	McDE
 	McMN
 	McSE
 	McER
 	McCL
-	McOK
 	McHIT
 	McMISS
 	McSTORED
@@ -152,13 +149,12 @@ func (c *Client) ParseMetaResponse() (rflags []byte, value []byte, code McCode, 
 		}
 		value = value[:size]
 		code = McVA
-	case "HD":
+	case "OK":
 		//parts := bytes.Split(line[:len(line)-2], []byte(" "))
 		// Chop "HD " and rest are flags.
-		// TODO: need to cut the \r\n off end as well?
 		rflags = line[3 : len(line)-2]
 		// No value to read, so we're done parsing the response.
-		code = McHD
+		code = McOK
 	case "EN":
 		// MetaGet miss
 		code = McEN
@@ -166,10 +162,6 @@ func (c *Client) ParseMetaResponse() (rflags []byte, value []byte, code McCode, 
 		// Meta Debug command
 		value = line[3 : len(line)-2]
 		code = McME
-	case "ST":
-		// Meta STORED
-		rflags = line[3 : len(line)-2]
-		code = McST
 	case "NS":
 		// Meta NOT_STORED
 		rflags = line[3 : len(line)-2]
@@ -182,10 +174,6 @@ func (c *Client) ParseMetaResponse() (rflags []byte, value []byte, code McCode, 
 		// Meta NOT_FOUND (set or delete)
 		rflags = line[3 : len(line)-2]
 		code = McNF
-	case "DE":
-		// Meta deleted
-		rflags = line[3 : len(line)-2]
-		code = McDE
 	case "MN":
 		// Meta NOP (response flush marker)
 		code = McMN

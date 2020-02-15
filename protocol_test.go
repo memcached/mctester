@@ -29,7 +29,7 @@ func TestMeta(t *testing.T) {
 			t.Fatalf("metaset error: %v", err)
 		}
 		_, _, c, err := mc.MetaReceive()
-		if c != McST {
+		if c != McOK {
 			t.Fatalf("metaset not stored: %d", c)
 		}
 	}
