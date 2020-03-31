@@ -21,6 +21,7 @@ func main() {
 	reqPerSleep := flag.Int("reqpersleep", 1, "number of requests to issue when client wakes up")
 	reqBundlePerConn := flag.Int("reqbundles", 1, "number of times to wake up and send requests before disconnecting (-1 for unlimited)")
 	sleepPerBundle := flag.Duration("sleepperbundle", time.Millisecond*1, "time to sleep between request bundles (accepts Ns, Nms, etc)")
+	deletePercent := flag.Int("deletepercent", 0, "percentage of queries to issue as deletes instead of gets (0-1000)")
 	keyPrefix := flag.String("keyprefix", "mctester:", "prefix to append to all generated keys")
 	keySpace := flag.Int("keyspace", 1000, "number of unique keys to generate")
 	keyLength := flag.Int("keylength", 10, "number of random characters to append to key")
@@ -57,6 +58,7 @@ func main() {
 		requestsPerSleep:      *reqPerSleep,
 		requestBundlesPerConn: *reqBundlePerConn,
 		sleepPerBundle:        *sleepPerBundle,
+		deletePercent:		   *deletePercent,
 		keyLength:             *keyLength,
 		keyPrefix:             *keyPrefix,
 		keySpace:              *keySpace,
@@ -104,6 +106,7 @@ type BasicLoader struct {
 	requestBundlesPerConn int
 	sleepPerBundle        time.Duration
 	setValueSizes         []int
+	deletePercent         int
 	keyLength             int
 	keyPrefix             string
 	keySpace              int
@@ -182,19 +185,29 @@ func (l *BasicLoader) Worker(doneChan chan<- int) {
 			// TODO: might be nice to pass (by ref?) prefix in here to make
 			// use of string.Builder.
 			key := l.keyPrefix + mct.RandString(&subRS, keyLen)
-			// issue gets
-			_, _, code, err := mc.Get(key)
-			// validate responses
-			if err != nil {
-				fmt.Println(err)
-				res = -1
-				return
-			}
-			// set missing values
-			if code == mct.McMISS {
-				// TODO: random sizing
-				value := mct.RandBytes(&rs, int(l.valueSize))
-				mc.Set(key, uint32(l.clientFlags), uint32(l.keyTTL), value)
+			// chance we issue a delete instead.
+			if l.deletePercent != 0 && randR.Intn(1000) < l.deletePercent {
+				_, err := mc.Delete(key)
+				if err != nil {
+					fmt.Println(err)
+					res = -1
+					return
+				}
+			} else {
+				// issue gets
+				_, _, code, err := mc.Get(key)
+				// validate responses
+				if err != nil {
+					fmt.Println(err)
+					res = -1
+					return
+				}
+				// set missing values
+				if code == mct.McMISS {
+					// TODO: random sizing
+					value := mct.RandBytes(&rs, int(l.valueSize))
+					mc.Set(key, uint32(l.clientFlags), uint32(l.keyTTL), value)
+				}
 			}
 		}
 		time.Sleep(l.sleepPerBundle)
