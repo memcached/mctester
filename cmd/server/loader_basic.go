@@ -124,11 +124,9 @@ func basicWorker(id int, doneChan chan<- int, updateChan <-chan *BasicLoader, l 
 	}
 
 	subRS := pcgr.New(1, 0) // randomizer is re-seeded for random strings.
-	var res int
 	// TODO: struct with id, res, err?
 	defer func() {
 		doneChan <- id
-		fmt.Printf("worker result: %d\n", res)
 	}()
 
 	for bundles == -1 || bundles > 0 {
@@ -158,7 +156,6 @@ func basicWorker(id int, doneChan chan<- int, updateChan <-chan *BasicLoader, l 
 				_, err := mc.Delete(key)
 				if err != nil {
 					fmt.Println(err)
-					res = -1
 					return
 				}
 			} else {
@@ -167,7 +164,6 @@ func basicWorker(id int, doneChan chan<- int, updateChan <-chan *BasicLoader, l 
 				// validate responses
 				if err != nil {
 					fmt.Println(err)
-					res = -1
 					return
 				}
 				// set missing values
