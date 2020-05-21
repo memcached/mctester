@@ -75,6 +75,9 @@ func runBasicLoader(Update <-chan interface{}, worker interface{}) {
 		case id := <-doneReceiver:
 			runners--
 			delete(workers, id)
+			// TODO: add a small backoff delay based on how fast we're
+			// reaching here along with an error condition.
+			// Need to add the error condition to doneReceiver first.
 		case update, ok := <-Update:
 			if ok {
 				fmt.Printf("received basic loader update\n")

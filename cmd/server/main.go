@@ -9,6 +9,7 @@ import (
 	"log"
 	"encoding/json"
 	"io/ioutil"
+	"time"
 )
 
 var cpuprofile = flag.String("cpuprofile", "", "dump cpu profile to file")
@@ -19,6 +20,7 @@ func main() {
 	// TODO: use FlagSet's to separate stuff.
 	// "global" flag.
 	addr := flag.String("address", ":11210", "addr:port to listen on")
+	timeout := time.Second * 0
 
 	// "basic" flags.
 	fmt.Printf("Example worker definition:")
@@ -52,16 +54,21 @@ func main() {
 		}
 		pprof.StartCPUProfile(f)
 		defer pprof.StopCPUProfile()
-		// TODO: Use a real timer with channel.
-		//now := time.Now()
-		//bl.stopAfter = now.Add(time.Second * 10)
-		//fmt.Printf("time: %v\n", bl.stopAfter)
+		timeout = time.Second * 10
+	}
+
+	if timeout != 0 {
+		fmt.Printf("limiting runtime.\n")
+		go func() {
+			time.Sleep(timeout)
+			fmt.Printf("time limit reached, exiting.\n")
+			os.Exit(0)
+		}()
 	}
 
 	// TODO: how to stop the server?
 	go loaderManager()
 	log.Fatal(http.ListenAndServe(*addr, nil))
-	//bl.Run()
 }
 
 type Loader struct {
