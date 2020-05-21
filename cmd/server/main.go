@@ -28,7 +28,7 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		wr := WorkerWrapper{Name: "example", WType: "basic", Worker: b}
+		wr := WorkerWrapper{Name: "example", LType: "basic", Worker: b}
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
 		if err := enc.Encode(&wr); err != nil {
@@ -66,7 +66,7 @@ func main() {
 
 type Loader struct {
 	Name string
-	WType string
+	LType string
 	Stop bool
 	Worker interface{}
 	Update chan interface{}
@@ -86,10 +86,10 @@ func loaderManager() {
 				close(loader.Update)
 				delete(loaders, update.Name)
 			} else {
-				if update.WType != loader.WType {
+				if update.LType != loader.LType {
 					// TODO: pass name?
 					// TODO: Not Fatal?
-					log.Fatal("WType (worker type) didn't match for existing loader")
+					log.Fatal("LType (loader type) didn't match for existing loader")
 					continue
 				}
 
@@ -101,7 +101,7 @@ func loaderManager() {
 			update.Update = make(chan interface{})
 			// run the correct loader for type supplied
 			// TODO: necessary? let the loader type assert instead?
-			switch update.WType {
+			switch update.LType {
 			case "basic":
 				go runBasicLoader(update.Update, update.Worker)
 			default:
@@ -114,7 +114,7 @@ func loaderManager() {
 
 type WorkerWrapper struct {
 	Name string `json:"name"`
-	WType string `json:"type"`
+	LType string `json:"type"`
 	Worker json.RawMessage `json:"worker"`
 }
 
@@ -135,14 +135,14 @@ func setHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Unwrap here since we can still ship an error to the user.
-	switch wrap.WType {
+	switch wrap.LType {
 	case "basic":
 		t := newBasicLoader()
 		if err := json.Unmarshal(wrap.Worker, t); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		l := Loader{Name: wrap.Name, WType: wrap.WType, Worker: t}
+		l := Loader{Name: wrap.Name, LType: wrap.LType, Worker: t}
 		updateChan <- &l
 	default:
 		http.Error(w, "unknown worker type", http.StatusBadRequest)

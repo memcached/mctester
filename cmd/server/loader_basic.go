@@ -81,8 +81,8 @@ func runBasicLoader(Update <-chan interface{}, worker interface{}) {
 				l = update.(*BasicLoader)
 				// Blast out update to everyone.
 				// Note they will pick up changes during the next sleep cycle.
-				for _, w := range workers {
-					w <- l
+				for _, wc := range workers {
+					wc <- l
 				}
 				fmt.Printf("sent loader update to workers\n")
 			} else {
