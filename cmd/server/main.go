@@ -87,16 +87,14 @@ func loaderManager() {
 				delete(loaders, update.Name)
 			} else {
 				if update.LType != loader.LType {
-					// TODO: pass name?
-					// TODO: Not Fatal?
-					log.Fatal("LType (loader type) didn't match for existing loader")
+					fmt.Printf("LType (loader type) didn't match for existing loader: %s", update.LType)
 					continue
 				}
 
 				fmt.Printf("shipping update to: %s\n", update.Name)
 				loader.Update <- update.Worker
 			}
-		} else {
+		} else if !update.Stop {
 			loaders[update.Name] = update
 			update.Update = make(chan interface{})
 			// run the correct loader for type supplied
@@ -105,7 +103,7 @@ func loaderManager() {
 			case "basic":
 				go runBasicLoader(update.Update, update.Worker)
 			default:
-				log.Fatal("unknown loader type")
+				fmt.Printf("unknown loader type: %s", update.LType)
 				continue
 			}
 		}

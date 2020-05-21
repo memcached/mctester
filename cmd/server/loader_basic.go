@@ -87,6 +87,10 @@ func runBasicLoader(Update <-chan interface{}, worker interface{}) {
 				fmt.Printf("sent loader update to workers\n")
 			} else {
 				keepGoing = false
+				// Close all the update channels so workers know to die off.
+				for _, wc := range workers {
+					close(wc)
+				}
 			}
 		}
 
@@ -175,9 +179,14 @@ func basicWorker(id int, doneChan chan<- int, updateChan <-chan *BasicLoader, l 
 			}
 		}
 		select {
-		case update := <-updateChan:
+		case update, ok := <-updateChan:
 			// TODO: re-create client if server changed.
-			l = update
+			if ok {
+				l = update
+			} else {
+				// Told to die. Let the deferral handle updating doneChan.
+				return
+			}
 		default:
 			// nothing. just fast-check for updates.
 		}
