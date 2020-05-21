@@ -30,7 +30,7 @@ func main() {
 	zipfS := flag.Float64("zipfS", 1.01, "zipf S value (general pull toward zero) must be > 1.0")
 	zipfV := flag.Float64("zipfV", float64(*keySpace/2), "zipf V value (pull below this number")
 	valueSize := flag.Uint("valuesize", 1000, "size of value (in bytes) to store on miss")
-	clientFlags := flag.Uint("clietnflags", 0, "(32bit unsigned) client flag bits to set on miss")
+	clientFlags := flag.Uint("clientflags", 0, "(32bit unsigned) client flag bits to set on miss")
 
 	flag.Parse()
 
