@@ -28,14 +28,14 @@ type BasicLoader struct {
 	ClientFlags           uint
 }
 
-func newBasicLoader() (*BasicLoader) {
+func newBasicLoader() *BasicLoader {
 	return &BasicLoader{
 		Servers:               []string{"127.0.0.1:11211"},
 		DesiredConnCount:      1,
 		RequestsPerSleep:      1,
 		RequestBundlesPerConn: 1,
-		SleepPerBundle:        time.Millisecond*1,
-		DeletePercent:		   0,
+		SleepPerBundle:        time.Millisecond * 1,
+		DeletePercent:         0,
 		KeyLength:             10,
 		KeyPrefix:             "mctester:",
 		KeySpace:              1000,

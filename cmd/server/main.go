@@ -1,14 +1,14 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
+	"io/ioutil"
+	"log"
+	"net/http"
 	"os"
 	"runtime/pprof"
-	"net/http"
-	"log"
-	"encoding/json"
-	"io/ioutil"
 	"time"
 )
 
@@ -72,9 +72,9 @@ func main() {
 }
 
 type Loader struct {
-	Name string
-	LType string
-	Stop bool
+	Name   string
+	LType  string
+	Stop   bool
 	Worker interface{}
 	Update chan interface{}
 }
@@ -118,8 +118,8 @@ func loaderManager() {
 }
 
 type WorkerWrapper struct {
-	Name string `json:"name"`
-	LType string `json:"type"`
+	Name   string          `json:"name"`
+	LType  string          `json:"type"`
 	Worker json.RawMessage `json:"worker"`
 }
 

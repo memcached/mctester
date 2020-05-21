@@ -58,7 +58,7 @@ func main() {
 		requestsPerSleep:      *reqPerSleep,
 		requestBundlesPerConn: *reqBundlePerConn,
 		sleepPerBundle:        *sleepPerBundle,
-		deletePercent:		   *deletePercent,
+		deletePercent:         *deletePercent,
 		keyLength:             *keyLength,
 		keyPrefix:             *keyPrefix,
 		keySpace:              *keySpace,
