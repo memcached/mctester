@@ -21,7 +21,7 @@ var updateChan chan *Loader
 func main() {
 	// top command: start
 	startCmd := flag.NewFlagSet("start", flag.ExitOnError)
-	startAddr := startCmd.String("address", ":11210", "addr:port to listen on")
+	startAddr := startCmd.String("address", "127.0.0.1:11210", "addr:port to listen on")
 	cpuprofile := startCmd.String("cpuprofile", "", "dump cpu profile to file")
 	startStopAfter := startCmd.Duration("duration", 0, "amount of time to run the test for")
 
