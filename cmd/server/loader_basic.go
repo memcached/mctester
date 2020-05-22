@@ -10,22 +10,22 @@ import (
 
 // Basic persistent load test, using text protocol:
 type BasicLoader struct {
-	Servers               []string
+	Servers               []string `json:"servers"`
 	stopAfter             time.Time
-	DesiredConnCount      int
-	RequestsPerSleep      int
-	RequestBundlesPerConn int
-	SleepPerBundle        time.Duration
-	DeletePercent         int
-	KeyLength             int
-	KeyPrefix             string
-	KeySpace              int
-	KeyTTL                uint
-	UseZipf               bool
-	ZipfS                 float64 // (> 1, generally 1.01-2) pulls the power curve toward 0)
-	ZipfV                 float64 // v (< KeySpace) puts the main part of the curve before this number
-	ValueSize             uint
-	ClientFlags           uint
+	DesiredConnCount      int `json:"conncount"`
+	RequestsPerSleep      int `json:"reqpersleep"`
+	RequestBundlesPerConn int `json:"reqbundlesperconn"`
+	SleepPerBundle        time.Duration `json:"sleepperbundle"`
+	DeletePercent         int `json:"deletepercent"`
+	KeyLength             int `json:"keylength"`
+	KeyPrefix             string `json:"keyprefix"`
+	KeySpace              int `json:"keyspace"`
+	KeyTTL                uint `json:"keyttl"`
+	UseZipf               bool `json:"zipf"`
+	ZipfS                 float64 `json:"zipfS"` // (> 1, generally 1.01-2) pulls the power curve toward 0)
+	ZipfV                 float64 `json:"zipfV"` // v (< KeySpace) puts the main part of the curve before this number
+	ValueSize             uint `json:"valuesize"`
+	ClientFlags           uint `json:"clientflags"`
 }
 
 func newBasicLoader() *BasicLoader {
