@@ -164,7 +164,9 @@ func (l *BasicLoader) Worker(doneChan chan<- int) {
 	defer func() { doneChan <- res }()
 
 	for bundles == -1 || bundles > 0 {
-		bundles--
+		if bundles != -1 {
+			bundles--
+		}
 		for i := l.requestsPerSleep; i > 0; i-- {
 			// generate keys
 			// TODO: Allow min/max length for keys.

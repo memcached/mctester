@@ -413,7 +413,7 @@ func (c *Client) Set(key string, flags uint32, expiration uint32, value []byte) 
 			return ErrServerError
 		} else {
 			// TODO: error wrapping
-			fmt.Printf("asdfa %s\n", string(line))
+			fmt.Printf("Got instead of STORED: %s\n", string(line))
 			return ErrUnexpectedResponse
 		}
 
