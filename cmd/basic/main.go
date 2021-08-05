@@ -139,6 +139,13 @@ func (l *BasicLoader) Run() {
 	}
 }
 
+func (l *BasicLoader) Timer(tag string, start time.Time) {
+	duration := time.Since(start)
+	if duration > time.Millisecond * 10 {
+		fmt.Printf("%s [%d]\n", tag, int64(time.Since(start) / time.Microsecond))
+	}
+}
+
 // TODO: use sync.Pool for Item/etc?
 // pool.Put() items back before sleep.
 // may also be able to cache mc's bufio's this way.
@@ -188,7 +195,8 @@ func (l *BasicLoader) Worker(doneChan chan<- int) {
 			// use of string.Builder.
 			key := l.keyPrefix + mct.RandString(&subRS, keyLen)
 			// chance we issue a delete instead.
-			if l.deletePercent != 0 && randR.Intn(1000) < l.deletePercent {
+			delChance := randR.Intn(1000)
+			if l.deletePercent != 0 && delChance < l.deletePercent {
 				_, err := mc.Delete(key)
 				if err != nil {
 					fmt.Println(err)
@@ -197,7 +205,9 @@ func (l *BasicLoader) Worker(doneChan chan<- int) {
 				}
 			} else {
 				// issue gets
+				start := time.Now()
 				_, _, code, err := mc.Get(key)
+				l.Timer("get", start)
 				// validate responses
 				if err != nil {
 					fmt.Println(err)
@@ -208,7 +218,9 @@ func (l *BasicLoader) Worker(doneChan chan<- int) {
 				if code == mct.McMISS {
 					// TODO: random sizing
 					value := mct.RandBytes(&rs, int(l.valueSize))
+					start := time.Now()
 					mc.Set(key, uint32(l.clientFlags), uint32(l.keyTTL), value)
+					l.Timer("set", start)
 				}
 			}
 		}
