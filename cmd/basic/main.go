@@ -32,7 +32,7 @@ func main() {
 	zipfV := flag.Float64("zipfV", float64(*keySpace/2), "zipf V value (pull below this number")
 	valueSize := flag.Uint("valuesize", 1000, "size of value (in bytes) to store on miss")
 	clientFlags := flag.Uint("clientflags", 0, "(32bit unsigned) client flag bits to set on miss")
-	pipelines := flag.Uint("pipeliness", 1, "(32bit unsigned) stack this many GET requests into the same syscall.")
+	pipelines := flag.Uint("pipelines", 1, "(32bit unsigned) stack this many GET requests into the same syscall.")
 	server := flag.String("server", "127.0.0.1:11211", "ip and port to connect to")
 	socket := flag.String("socket", "", "domain socket to connect to")
 	stripKeyPrefix := flag.Bool("stripkeyprefix", false, "strip key prefix before comparing with response.")
