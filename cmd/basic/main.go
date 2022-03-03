@@ -3,12 +3,13 @@ package main
 import (
 	"flag"
 	"fmt"
-	pcgr "github.com/dgryski/go-pcgr"
-	mct "github.com/dormando/mctester"
 	"math/rand"
 	"os"
 	"runtime/pprof"
 	"time"
+
+	pcgr "github.com/dgryski/go-pcgr"
+	mct "github.com/feihu-stripe/mctester"
 )
 
 var cpuprofile = flag.String("cpuprofile", "", "dump cpu profile to file")
@@ -31,6 +32,10 @@ func main() {
 	zipfV := flag.Float64("zipfV", float64(*keySpace/2), "zipf V value (pull below this number")
 	valueSize := flag.Uint("valuesize", 1000, "size of value (in bytes) to store on miss")
 	clientFlags := flag.Uint("clientflags", 0, "(32bit unsigned) client flag bits to set on miss")
+	pipelines := flag.Uint("pipelines", 1, "(32bit unsigned) stack this many GET requests into the same syscall.")
+	server := flag.String("server", "127.0.0.1:11211", "ip and port to connect to")
+	socket := flag.String("socket", "", "domain socket to connect to")
+	stripKeyPrefix := flag.Bool("stripkeyprefix", false, "strip key prefix before comparing with response.")
 
 	flag.Parse()
 
@@ -53,7 +58,10 @@ func main() {
 	*/
 
 	bl := &BasicLoader{
-		servers:               []string{"127.0.0.1:11211"},
+		servers:               []string{*server},
+		socket:                *socket,
+		pipelines:             *pipelines,
+		stripKeyPrefix:        *stripKeyPrefix,
 		desiredConnCount:      *connCount,
 		requestsPerSleep:      *reqPerSleep,
 		requestBundlesPerConn: *reqBundlePerConn,
@@ -100,6 +108,9 @@ func main() {
 // - variances: how often to change item sizes
 type BasicLoader struct {
 	servers               []string
+	socket                string
+	pipelines             uint
+	stripKeyPrefix        bool
 	stopAfter             time.Time
 	desiredConnCount      int
 	requestsPerSleep      int
@@ -152,7 +163,7 @@ func (l *BasicLoader) Timer(tag string, start time.Time) {
 func (l *BasicLoader) Worker(doneChan chan<- int) {
 	// FIXME: selector.
 	host := l.servers[0]
-	mc := mct.NewClient(host)
+	mc := mct.NewClient(host, l.socket, l.pipelines, l.keyPrefix, l.stripKeyPrefix)
 	bundles := l.requestBundlesPerConn
 
 	rs := pcgr.New(time.Now().UnixNano(), 0)
