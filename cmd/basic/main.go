@@ -191,7 +191,7 @@ func (conf *Config) WarmCache() error {
 }
 
 func (conf *Config) Worker(index int, results chan Stats) error {
-	workerSeed := conf.RngSeed + int64(index*conf.KeySpace)
+	workerSeed := conf.RngSeed + int64(index) + int64(conf.KeySpace)
 	stats := Stats{}
 	mc := mct.NewClient(conf.Servers[0], conf.Socket, conf.Pipelines, conf.KeyPrefix, conf.StripKeyPrefix)
 
@@ -223,7 +223,7 @@ func (conf *Config) Worker(index int, results chan Stats) error {
 		if conf.UseZipf {
 			subRS.Seed(int64(zipRS.Uint64()))
 		} else {
-			subRS.Seed(workerSeed + int64(randR.Intn(conf.KeySpace)))
+			subRS.Seed(conf.RngSeed + int64(randR.Intn(conf.KeySpace)))
 		}
 
 		key := mct.RandString(&subRS, conf.KeyLength, conf.KeyPrefix)
