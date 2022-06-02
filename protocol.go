@@ -17,6 +17,7 @@ import (
 	"io"
 	"net"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -36,7 +37,13 @@ type mcConn struct {
 }
 
 func (c *Client) connectToMc() (*mcConn, error) {
-	conn, err := net.DialTimeout("tcp", c.Host, c.ConnectTimeout)
+	var conn net.Conn
+	var err error
+	if c.socket != "" {
+		conn, err = net.DialTimeout("unix", c.socket, c.ConnectTimeout)
+	} else {
+		conn, err = net.DialTimeout("tcp", c.Host, c.ConnectTimeout)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -50,6 +57,7 @@ type Client struct {
 	// read or write timeout
 	NetTimeout time.Duration
 	Host       string
+	socket     string
 	cn         *mcConn
 	WBufSize   int
 	RBufSize   int
@@ -57,12 +65,20 @@ type Client struct {
 	// binprot structure cache.
 	binpkt *packet
 	opaque uint32 // just for binprot?
+
+	pipelines      int
+	keyPrefix      string
+	stripKeyPrefix bool
 }
 
-func NewClient(host string) (client *Client) {
+func NewClient(host string, socket string, pipelines uint, keyPrefix string, stripKeyPrefix bool) (client *Client) {
 	client = &Client{
-		Host:   host,
-		binpkt: &packet{},
+		Host:           host,
+		socket:         socket,
+		pipelines:      int(pipelines),
+		keyPrefix:      keyPrefix,
+		stripKeyPrefix: stripKeyPrefix,
+		binpkt:         &packet{},
 	}
 	//client.rs = rand.NewSource(time.Now().UnixNano())
 	return client
@@ -319,56 +335,72 @@ func (c *Client) MetaDebug(key string) (err error) {
 //////////////////////////////////////////////
 
 func (c *Client) Get(key string) (flags uint64, value []byte, code McCode, err error) {
+	pipelines := c.pipelines
+	// Expected key from response
+	respKey := key
+	if c.stripKeyPrefix {
+		respKey = strings.TrimPrefix(key, c.keyPrefix)
+	}
+
 	err = c.runNow(key, len(key)+6, func() error {
 		b := c.cn.b
-		b.WriteString("get ")
-		b.WriteString(key)
-		b.WriteString("\r\n")
+		for i := 0; i < pipelines; i++ {
+			b.WriteString("get ")
+			b.WriteString(key)
+			b.WriteString("\r\n")
+		}
 		err = b.Flush()
-
 		if err != nil {
 			return err
 		}
 
-		line, err := b.ReadBytes('\n')
-		if err != nil {
-			return err
-		}
-
-		if bytes.Equal(line, []byte("END\r\n")) {
-			code = McMISS
-		} else {
-			parts := bytes.Split(line[:len(line)-2], []byte(" "))
-			if !bytes.Equal(parts[0], []byte("VALUE")) {
-				// TODO: This should look for ERROR/SERVER_ERROR/etc
-				return ErrUnexpectedResponse
-			}
-			if len(parts) != 4 {
-				return ErrUnexpectedResponse
-			}
-			if !bytes.Equal(parts[1], []byte(key)) {
-				// FIXME: how do we embed the received vs expected in here?
-				// use the brand-new golang error wrapping thing?
-				return ErrKeyDoesNotMatch
-			}
-			flags, _ = ParseUint(parts[2])
-			size, _ := ParseUint(parts[3])
-
-			value = make([]byte, size+2)
-			_, err := io.ReadFull(b, value)
+		for i := 0; i < pipelines; i++ {
+			line, err := b.ReadBytes('\n')
 			if err != nil {
 				return err
 			}
 
-			if !bytes.Equal(value[len(value)-2:], []byte("\r\n")) {
-				return ErrCorruptValue
-			}
-			code = McHIT
-			value = value[:size]
+			if bytes.Equal(line, []byte("END\r\n")) {
+				code = McMISS
+			} else {
+				parts := bytes.Split(line[:len(line)-2], []byte(" "))
+				if !bytes.Equal(parts[0], []byte("VALUE")) {
+					// TODO: This should look for ERROR/SERVER_ERROR/etc
+					fmt.Print("Unexpected Response: ", string(line), "\n")
+					continue
+				}
+				if len(parts) != 4 {
+					fmt.Print("Unexpected Response: ", "parts not 4", "\n")
+					continue
+				}
+				if !bytes.Equal(parts[1], []byte(respKey)) {
+					fmt.Print("Unmatched Key: ", string(parts[1]), " and ", respKey, "\n")
+					// FIXME: how do we embed the received vs expected in here?
+					// use the brand-new golang error wrapping thing?
+					continue
+				}
+				flags, _ = ParseUint(parts[2])
+				size, _ := ParseUint(parts[3])
 
-			line, err = b.ReadBytes('\n')
-			if !bytes.Equal(line, []byte("END\r\n")) {
-				return ErrUnexpectedResponse
+				value = make([]byte, size+2)
+				_, err := io.ReadFull(b, value)
+				if err != nil {
+					fmt.Print("io ReadFull error, return", "\n")
+					return err
+				}
+
+				if !bytes.Equal(value[len(value)-2:], []byte("\r\n")) {
+					fmt.Print("Unmatched Value", "\n")
+					continue
+				}
+				code = McHIT
+				value = value[:size]
+
+				line, err = b.ReadBytes('\n')
+				if !bytes.Equal(line, []byte("END\r\n")) {
+					fmt.Print("Unmatched Reponse: ", string(line), " is not END\r\n")
+					continue
+				}
 			}
 		}
 

@@ -25,9 +25,10 @@ const (
 
 // randomized keys!
 // TODO: is sb reusable?
-func RandString(src rand.Source, n int) string {
+func RandString(src rand.Source, n int, prefix string) string {
 	sb := strings.Builder{}
-	sb.Grow(n)
+	sb.Grow(len(prefix) + n)
+	sb.WriteString(prefix)
 	// A src.Int63() generates 63 random bits, enough for letterIdxMax characters!
 	for i, cache, remain := n-1, src.Int63(), letterIdxMax; i >= 0; {
 		if remain == 0 {

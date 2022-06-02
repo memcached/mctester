@@ -11,9 +11,13 @@ import (
 
 // tests expect a recent memcached to be running at this address.
 const hostname = "127.0.0.1:11211"
+const socket = ""
+const pipelines = 1
+const keyPrefix = "mctester:"
+const stripKeyPrefix = false
 
 func newcli() *Client {
-	mc := NewClient(hostname)
+	mc := NewClient(hostname, socket, pipelines, keyPrefix, stripKeyPrefix)
 	mc.ConnectTimeout = 3 * time.Second
 	mc.NetTimeout = time.Second
 	mc.WBufSize = 64 * 1024

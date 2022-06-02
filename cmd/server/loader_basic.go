@@ -2,35 +2,42 @@ package main
 
 import (
 	"fmt"
-	pcgr "github.com/dgryski/go-pcgr"
-	mct "github.com/dormando/mctester"
 	"math/rand"
 	"time"
+
+	"github.com/dgryski/go-pcgr"
+	mct "github.com/memcached/mctester"
 )
 
 // Basic persistent load test, using text protocol:
 type BasicLoader struct {
-	Servers               []string `json:"servers"`
-	stopAfter             time.Time
-	DesiredConnCount      int `json:"conncount"`
-	RequestsPerSleep      int `json:"reqpersleep"`
-	RequestBundlesPerConn int `json:"reqbundlesperconn"`
+	Servers               []string      `json:"servers"`
+	Socket                string        `json:"socket"`
+	Pipelines             uint          `json:"pipelines"`
+	StripKeyPrefix        bool          `json:"stripkeyprefix"`
+	StopAfter             time.Time     `json:"stopafter"`
+	DesiredConnCount      int           `json:"conncount"`
+	RequestsPerSleep      int           `json:"reqpersleep"`
+	RequestBundlesPerConn int           `json:"reqbundlesperconn"`
 	SleepPerBundle        time.Duration `json:"sleepperbundle"`
-	DeletePercent         int `json:"deletepercent"`
-	KeyLength             int `json:"keylength"`
-	KeyPrefix             string `json:"keyprefix"`
-	KeySpace              int `json:"keyspace"`
-	KeyTTL                uint `json:"keyttl"`
-	UseZipf               bool `json:"zipf"`
-	ZipfS                 float64 `json:"zipfS"` // (> 1, generally 1.01-2) pulls the power curve toward 0)
-	ZipfV                 float64 `json:"zipfV"` // v (< KeySpace) puts the main part of the curve before this number
-	ValueSize             uint `json:"valuesize"`
-	ClientFlags           uint `json:"clientflags"`
+	DeletePercent         int           `json:"deletepercent"`
+	KeyLength             int           `json:"keylength"`
+	KeyPrefix             string        `json:"keyprefix"`
+	KeySpace              int           `json:"keyspace"`
+	KeyTTL                uint          `json:"keyttl"`
+	UseZipf               bool          `json:"zipf"`
+	ZipfS                 float64       `json:"zipfS"` // (> 1, generally 1.01-2) pulls the power curve toward 0)
+	ZipfV                 float64       `json:"zipfV"` // v (< KeySpace) puts the main part of the curve before this number
+	ValueSize             uint          `json:"valuesize"`
+	ClientFlags           uint          `json:"clientflags"`
 }
 
 func newBasicLoader() *BasicLoader {
 	return &BasicLoader{
 		Servers:               []string{"127.0.0.1:11211"},
+		Socket:                "",
+		Pipelines:             1,
+		StripKeyPrefix:        false,
 		DesiredConnCount:      1,
 		RequestsPerSleep:      1,
 		RequestBundlesPerConn: 1,
@@ -116,7 +123,7 @@ func runBasicLoader(Update <-chan interface{}, worker interface{}) {
 func basicWorker(id int, doneChan chan<- int, updateChan <-chan *BasicLoader, l *BasicLoader) {
 	// TODO: server selector.
 	host := l.Servers[0]
-	mc := mct.NewClient(host)
+	mc := mct.NewClient(host, l.Socket, l.Pipelines, l.KeyPrefix, l.StripKeyPrefix)
 	bundles := l.RequestBundlesPerConn
 
 	rs := pcgr.New(time.Now().UnixNano(), 0)
@@ -149,7 +156,6 @@ func basicWorker(id int, doneChan chan<- int, updateChan <-chan *BasicLoader, l 
 			// Could also re-seed it twice, pull once Intn for length,
 			// re-seed, then again for key space.
 
-			keyLen := l.KeyLength
 			if l.UseZipf {
 				subRS.Seed(int64(zipRS.Uint64()))
 			} else {
@@ -157,7 +163,7 @@ func basicWorker(id int, doneChan chan<- int, updateChan <-chan *BasicLoader, l 
 			}
 			// TODO: might be nice to pass (by ref?) prefix in here to make
 			// use of string.Builder.
-			key := l.KeyPrefix + mct.RandString(&subRS, keyLen)
+			key := mct.RandString(&subRS, l.KeyLength, l.KeyPrefix)
 			// chance we issue a delete instead.
 			if l.DeletePercent != 0 && randR.Intn(1000) < l.DeletePercent {
 				_, err := mc.Delete(key)

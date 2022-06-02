@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -10,7 +11,6 @@ import (
 	"os"
 	"runtime/pprof"
 	"time"
-	"bytes"
 )
 
 // TODO: think we can pass this to loaderManager() from main()?
@@ -111,7 +111,7 @@ func main() {
 				os.Exit(1)
 			}
 		}
-		resp, err := http.Post(*setAddr + "/set", "Content-Type: application/json", bytes.NewReader(data))
+		resp, err := http.Post(*setAddr+"/set", "Content-Type: application/json", bytes.NewReader(data))
 		if err != nil {
 			fmt.Println("Error sending loader config to server:", err)
 			os.Exit(1)
@@ -135,7 +135,7 @@ func main() {
 			log.Fatal(err)
 		}
 
-		resp, err := http.Post(*delAddr + "/delete", "Content-Type: application/json", bytes.NewReader(data))
+		resp, err := http.Post(*delAddr+"/delete", "Content-Type: application/json", bytes.NewReader(data))
 		if resp.StatusCode == http.StatusOK {
 			fmt.Printf("successfully send loader update\n")
 		} else {
