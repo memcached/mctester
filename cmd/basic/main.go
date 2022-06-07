@@ -42,6 +42,7 @@ func main() {
 	socket := flag.String("socket", "", "domain socket used for connections")
 	stripKeyPrefix := flag.Bool("stripkeyprefix", false, "remove key prefix before comparing with response")
 	keyTTL := flag.Uint("ttl", 180, "TTL to set with new items")
+	validateGets := flag.Bool("validate", false, "compare the value returned from a `get` to what was initially `set`")
 	valueSize := flag.Uint("valuesize", 1000, "size of value (in bytes) to store on miss")
 	warmPercent := flag.Int("warm", 90, "percent of keys to `set` in Memcached before testing begins")
 	useZipf := flag.Bool("zipf", false, "use Zipf instead of uniform randomness (slow)")
@@ -68,6 +69,7 @@ func main() {
 		Socket:         *socket,
 		StripKeyPrefix: *stripKeyPrefix,
 		UseZipf:        *useZipf,
+		ValidateGets:   *validateGets,
 		ValueSize:      *valueSize,
 		WarmPercent:    *warmPercent,
 		ZipfS:          *zipfS,
@@ -105,11 +107,13 @@ type Config struct {
 	Socket         string
 	StripKeyPrefix bool
 	UseZipf        bool
+	ValidateGets   bool
 	ValueSize      uint
 	WarmPercent    int
 	ZipfS          float64 // (> 1, generally 1.01-2) pulls the power curve toward 0)
 	ZipfV          float64 // v (< keySpace) puts the main part of the curve before this number
-	tachymeter     *tachymeter.Tachymeter
+
+	tachymeter *tachymeter.Tachymeter
 }
 
 func (conf *Config) Run() (err error) {
@@ -149,6 +153,9 @@ func (conf *Config) Run() (err error) {
 	testStats := &Stats{}
 	for stats := range threadStats {
 		testStats.Add(&stats)
+	}
+	if !conf.ValidateGets {
+		testStats.KeyCollisions = -1
 	}
 
 	report := &Report{
@@ -256,7 +263,6 @@ func (conf *Config) Worker(index int, results chan Stats) error {
 
 			stats.SetsTotal++
 		default:
-			expectedValue := mct.RandBytes(&subRS, int(conf.ValueSize))
 			rl.Take()
 			_, value, code, err := mc.Get(key)
 			if err != nil {
@@ -268,9 +274,12 @@ func (conf *Config) Worker(index int, results chan Stats) error {
 			case mct.McHIT:
 				stats.GetHits++
 
-				if !bytes.Equal(value, expectedValue) {
-					stats.KeyCollisions++
-					fmt.Printf("Unexpected value found for key `%s`\n\tExpected Value: %s\n\tActual Value: %s\n", key, expectedValue, value)
+				if conf.ValidateGets {
+					expectedValue := mct.RandBytes(&subRS, int(conf.ValueSize))
+					if !bytes.Equal(value, expectedValue) {
+						stats.KeyCollisions++
+						fmt.Printf("Unexpected value found for key `%s`\n\tExpected Value: %s\n\tActual Value: %s\n", key, expectedValue, value)
+					}
 				}
 			case mct.McMISS:
 				stats.GetMisses++
