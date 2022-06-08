@@ -198,12 +198,13 @@ func (conf *Config) WarmCache() error {
 }
 
 func (conf *Config) Worker(index int, results chan Stats) error {
-	workerSeed := conf.RngSeed + int64(index) + int64(conf.KeySpace)
 	stats := Stats{}
 	mc := mct.NewClient(conf.Servers[0], conf.Socket, conf.Pipelines, conf.KeyPrefix, conf.StripKeyPrefix)
 
+	workerSeed := conf.RngSeed + int64(index) + int64(conf.KeySpace)
 	rs := pcgr.New(workerSeed, 0)
 	randR := rand.New(&rs)
+
 	var zipRS *rand.Zipf
 	if conf.UseZipf {
 		zipRS = rand.NewZipf(randR, conf.ZipfS, conf.ZipfV, uint64(conf.KeySpace))
@@ -228,7 +229,7 @@ func (conf *Config) Worker(index int, results chan Stats) error {
 		}
 
 		if conf.UseZipf {
-			subRS.Seed(int64(zipRS.Uint64()))
+			subRS.Seed(conf.RngSeed + int64(zipRS.Uint64()))
 		} else {
 			subRS.Seed(conf.RngSeed + int64(randR.Intn(conf.KeySpace)))
 		}
