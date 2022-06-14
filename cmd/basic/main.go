@@ -8,8 +8,9 @@ import (
 	"runtime/pprof"
 	"time"
 
+	mct "mctester/internal"
+
 	"github.com/dgryski/go-pcgr"
-	mct "github.com/memcached/mctester"
 )
 
 var cpuprofile = flag.String("cpuprofile", "", "dump cpu profile to file")

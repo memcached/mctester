@@ -9,9 +9,10 @@ import (
 	"math/rand"
 	"time"
 
+	mct "mctester/internal"
+
 	"github.com/dgryski/go-pcgr"
 	"github.com/jamiealquiza/tachymeter"
-	mct "github.com/memcached/mctester"
 
 	"golang.org/x/sync/errgroup"
 

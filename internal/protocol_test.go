@@ -1,4 +1,4 @@
-package mctester
+package internal
 
 import (
 	"bytes"

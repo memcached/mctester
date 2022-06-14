@@ -6,7 +6,7 @@
 // https://github.com/stathat/consistent MIT licensed.
 // maybe just an example that uses it separately?
 
-package mctester
+package internal
 
 import (
 	"bufio"
