@@ -1,4 +1,4 @@
-module mctester
+module github.com/memcached/mctester
 
 go 1.18
 

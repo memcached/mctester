@@ -8,7 +8,7 @@ import (
 	"runtime/pprof"
 	"time"
 
-	mct "mctester/internal"
+	mct "github.com/memcached/mctester/internal"
 
 	"github.com/dgryski/go-pcgr"
 )

@@ -9,7 +9,7 @@ import (
 	"math/rand"
 	"time"
 
-	mct "mctester/internal"
+	mct "github.com/memcached/mctester/internal"
 
 	"github.com/dgryski/go-pcgr"
 	"github.com/jamiealquiza/tachymeter"
