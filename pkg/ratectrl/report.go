@@ -1,4 +1,4 @@
-package main
+package ratectrl
 
 import (
 	"encoding/json"
