@@ -100,6 +100,7 @@ type Config struct {
 	ZipfV          float64 // v (< keySpace) puts the main part of the curve before this number
 
 	cacheEntries []CacheEntry
+	rateLimiter  ratelimit.Limiter
 	tachymeter   *tachymeter.Tachymeter
 }
 
@@ -141,6 +142,12 @@ func (conf *Config) Run() (err error) {
 		if err != nil {
 			return
 		}
+	}
+
+	if conf.RPS > 0 {
+		conf.rateLimiter = ratelimit.New(conf.RPS)
+	} else {
+		conf.rateLimiter = ratelimit.NewUnlimited()
 	}
 
 	threadStats := make(chan Stats, conf.ConnCount)
@@ -205,8 +212,9 @@ func (conf *Config) WarmCache() error {
 }
 
 func (conf *Config) Worker(index int, results chan Stats) error {
-	stats := Stats{}
 	mc := mct.NewClient(conf.Servers[0], conf.Socket, conf.Pipelines, conf.KeyPrefix, conf.StripKeyPrefix)
+	stats := Stats{}
+	rl := conf.rateLimiter
 
 	workerSeed := conf.RngSeed + int64(index) + int64(conf.KeySpace)
 	rs := pcgr.New(workerSeed, 0)
@@ -219,13 +227,6 @@ func (conf *Config) Worker(index int, results chan Stats) error {
 			fmt.Printf("bad arguments to zipf: S: %f V: %f\n", conf.ZipfS, conf.ZipfV)
 			return nil
 		}
-	}
-
-	var rl ratelimit.Limiter
-	if conf.RPS > 0 {
-		rl = ratelimit.New(conf.RPS)
-	} else {
-		rl = ratelimit.NewUnlimited()
 	}
 
 	for start := time.Now(); ; {
