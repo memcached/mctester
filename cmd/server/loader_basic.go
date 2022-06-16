@@ -5,9 +5,8 @@ import (
 	"math/rand"
 	"time"
 
-	mct "github.com/memcached/mctester/internal"
-
 	"github.com/dgryski/go-pcgr"
+	mct "github.com/memcached/mctester/internal"
 )
 
 // Basic persistent load test, using text protocol:
