@@ -185,9 +185,9 @@ func (conf *Config) Worker(index int, results chan Stats) error {
 		entry := conf.cacheEntries[index]
 		key := entry.key
 
+		rl.Take()
 		switch rng := randR.Intn(conf.DelRatio + conf.SetRatio + conf.GetRatio); {
 		case rng < conf.DelRatio:
-			rl.Take()
 			code, err := mc.Delete(key)
 			if err != nil {
 				fmt.Println(err)
@@ -202,7 +202,6 @@ func (conf *Config) Worker(index int, results chan Stats) error {
 			}
 		case rng < (conf.DelRatio + conf.SetRatio):
 			value := entry.value
-			rl.Take()
 			_, err := mc.Set(key, uint32(conf.ClientFlags), uint32(conf.KeyTTL), value)
 			if err != nil {
 				fmt.Println(err)
@@ -211,7 +210,6 @@ func (conf *Config) Worker(index int, results chan Stats) error {
 
 			stats.SetsTotal++
 		default:
-			rl.Take()
 			_, value, code, err := mc.Get(key)
 			if err != nil {
 				fmt.Println(err, value)
