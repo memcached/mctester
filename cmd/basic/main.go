@@ -10,6 +10,7 @@ import (
 
 	"github.com/dgryski/go-pcgr"
 	mct "github.com/memcached/mctester/internal"
+	"github.com/memcached/mctester/pkg/client"
 )
 
 var cpuprofile = flag.String("cpuprofile", "", "dump cpu profile to file")
@@ -163,7 +164,7 @@ func (l *BasicLoader) Timer(tag string, start time.Time) {
 func (l *BasicLoader) Worker(doneChan chan<- int) {
 	// FIXME: selector.
 	host := l.servers[0]
-	mc := mct.NewClient(host, l.socket, l.pipelines, l.keyPrefix, l.stripKeyPrefix)
+	mc := client.NewClient(host, l.socket, l.pipelines, l.keyPrefix, l.stripKeyPrefix)
 	bundles := l.requestBundlesPerConn
 
 	rs := pcgr.New(time.Now().UnixNano(), 0)
@@ -224,7 +225,7 @@ func (l *BasicLoader) Worker(doneChan chan<- int) {
 					return
 				}
 				// set missing values
-				if code == mct.McMISS {
+				if code == client.McMISS {
 					// TODO: random sizing
 					value := mct.RandBytes(&rs, int(l.valueSize))
 					start := time.Now()

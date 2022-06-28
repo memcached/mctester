@@ -11,6 +11,7 @@ import (
 	"github.com/dgryski/go-pcgr"
 	"github.com/jamiealquiza/tachymeter"
 	mct "github.com/memcached/mctester/internal"
+	"github.com/memcached/mctester/pkg/client"
 	"go.uber.org/ratelimit"
 	"golang.org/x/sync/errgroup"
 )
@@ -130,7 +131,7 @@ func (conf *Config) Run() (err error) {
 }
 
 func (conf *Config) WarmCache() error {
-	mc := mct.NewClient(conf.Servers[0], conf.Socket, conf.Pipelines, conf.KeyPrefix, conf.StripKeyPrefix)
+	mc := client.NewClient(conf.Servers[0], conf.Socket, conf.Pipelines, conf.KeyPrefix, conf.StripKeyPrefix)
 	rs := pcgr.New(conf.RngSeed, 0)
 	randR := rand.New(&rs)
 
@@ -152,7 +153,7 @@ func (conf *Config) WarmCache() error {
 }
 
 func (conf *Config) Worker(index int, results chan Stats) error {
-	mc := mct.NewClient(conf.Servers[0], conf.Socket, conf.Pipelines, conf.KeyPrefix, conf.StripKeyPrefix)
+	mc := client.NewClient(conf.Servers[0], conf.Socket, conf.Pipelines, conf.KeyPrefix, conf.StripKeyPrefix)
 	stats := Stats{}
 	rl := conf.rateLimiter
 
@@ -195,9 +196,9 @@ func (conf *Config) Worker(index int, results chan Stats) error {
 			}
 
 			switch code {
-			case mct.McDELETED:
+			case client.McDELETED:
 				stats.DeleteHits++
-			case mct.McNOT_FOUND:
+			case client.McNOT_FOUND:
 				stats.DeleteMisses++
 			}
 		case rng < (conf.DelRatio + conf.SetRatio):
@@ -217,7 +218,7 @@ func (conf *Config) Worker(index int, results chan Stats) error {
 			}
 
 			switch code {
-			case mct.McHIT:
+			case client.McHIT:
 				stats.GetHits++
 
 				expectedValue := entry.value
@@ -226,7 +227,7 @@ func (conf *Config) Worker(index int, results chan Stats) error {
 					fmt.Printf("Unexpected value found for key `%s`\n\tExpected Value: %s\n\tActual Value: %s\n", key, expectedValue, value)
 				}
 
-			case mct.McMISS:
+			case client.McMISS:
 				stats.GetMisses++
 			}
 		}

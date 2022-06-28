@@ -7,6 +7,7 @@ import (
 
 	"github.com/dgryski/go-pcgr"
 	mct "github.com/memcached/mctester/internal"
+	"github.com/memcached/mctester/pkg/client"
 )
 
 // Basic persistent load test, using text protocol:
@@ -123,7 +124,7 @@ func runBasicLoader(Update <-chan interface{}, worker interface{}) {
 func basicWorker(id int, doneChan chan<- int, updateChan <-chan *BasicLoader, l *BasicLoader) {
 	// TODO: server selector.
 	host := l.Servers[0]
-	mc := mct.NewClient(host, l.Socket, l.Pipelines, l.KeyPrefix, l.StripKeyPrefix)
+	mc := client.NewClient(host, l.Socket, l.Pipelines, l.KeyPrefix, l.StripKeyPrefix)
 	bundles := l.RequestBundlesPerConn
 
 	rs := pcgr.New(time.Now().UnixNano(), 0)
@@ -179,7 +180,7 @@ func basicWorker(id int, doneChan chan<- int, updateChan <-chan *BasicLoader, l 
 					return
 				}
 				// set missing values
-				if code == mct.McMISS {
+				if code == client.McMISS {
 					// TODO: random sizing
 					value := mct.RandBytes(&rs, int(l.ValueSize))
 					mc.Set(key, uint32(l.ClientFlags), uint32(l.KeyTTL), value)
