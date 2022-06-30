@@ -26,6 +26,9 @@ type Config struct {
 	KeyPrefix      string
 	KeySpace       int
 	KeyTTL         uint
+	MetaDelFlags   string
+	MetaGetFlags   string
+	MetaSetFlags   string
 	Pipelines      uint
 	RngSeed        int64
 	RPS            int
@@ -33,6 +36,7 @@ type Config struct {
 	SetRatio       int
 	Socket         string
 	StripKeyPrefix bool
+	UseMeta        bool
 	UseZipf        bool
 	ValidateGets   bool
 	ValueSize      uint
@@ -141,10 +145,27 @@ func (conf *Config) WarmCache() error {
 			key := entry.key
 			value := entry.value
 
-			_, err := mc.Set(key, uint32(conf.ClientFlags), uint32(conf.KeyTTL), value)
-			if err != nil {
-				fmt.Println(err)
-				return err
+			if conf.UseMeta {
+				err := mc.MetaSet(key, conf.MetaSetFlags, value)
+				if err != nil {
+					fmt.Printf("metaset error: %v\n", err)
+					return err
+				}
+
+				_, _, c, err := mc.MetaReceive()
+				if c != client.McHD {
+					fmt.Printf("metaset not stored: %d\n", c)
+				}
+				if err != nil {
+					fmt.Printf("metaset receive error: %v\n", err)
+					return err
+				}
+			} else {
+				_, err := mc.Set(key, uint32(conf.ClientFlags), uint32(conf.KeyTTL), value)
+				if err != nil {
+					fmt.Println(err)
+					return err
+				}
 			}
 		}
 	}
@@ -189,36 +210,90 @@ func (conf *Config) Worker(index int, results chan Stats) error {
 		rl.Take()
 		switch rng := randR.Intn(conf.DelRatio + conf.SetRatio + conf.GetRatio); {
 		case rng < conf.DelRatio:
-			code, err := mc.Delete(key)
-			if err != nil {
-				fmt.Println(err)
-				return err
+			var code client.McCode
+			var err error
+
+			if conf.UseMeta {
+				err = mc.MetaDelete(key, conf.MetaDelFlags)
+				if err != nil {
+					fmt.Printf("metadelete error: %v\n", err)
+					return err
+				}
+
+				_, _, code, err = mc.MetaReceive()
+				if code != client.McHD && code != client.McNF {
+					fmt.Printf("metadelete not successful: %d\n", code)
+				}
+				if err != nil {
+					fmt.Printf("metadelete receive error: %v\n", err)
+					return err
+				}
+			} else {
+				code, err = mc.Delete(key)
+				if err != nil {
+					fmt.Println(err)
+					return err
+				}
 			}
 
 			switch code {
-			case client.McDELETED:
+			case client.McDELETED, client.McHD:
 				stats.DeleteHits++
-			case client.McNOT_FOUND:
+			case client.McNOT_FOUND, client.McNF:
 				stats.DeleteMisses++
 			}
 		case rng < (conf.DelRatio + conf.SetRatio):
 			value := entry.value
-			_, err := mc.Set(key, uint32(conf.ClientFlags), uint32(conf.KeyTTL), value)
-			if err != nil {
-				fmt.Println(err)
-				return err
+
+			if conf.UseMeta {
+				err := mc.MetaSet(key, conf.MetaSetFlags, value)
+				if err != nil {
+					fmt.Printf("metaset error: %v\n", err)
+					return err
+				}
+
+				_, _, code, err := mc.MetaReceive()
+				if code != client.McHD {
+					fmt.Printf("metaset not stored: %d\n", code)
+				}
+				if err != nil {
+					fmt.Printf("metaset receive error: %v\n", err)
+					return err
+				}
+			} else {
+				_, err := mc.Set(key, uint32(conf.ClientFlags), uint32(conf.KeyTTL), value)
+				if err != nil {
+					fmt.Println(err)
+					return err
+				}
 			}
 
 			stats.SetsTotal++
 		default:
-			_, value, code, err := mc.Get(key)
-			if err != nil {
-				fmt.Println(err, value)
-				return err
+			var code client.McCode
+			var value []byte
+			if conf.UseMeta {
+				err := mc.MetaGet(key, conf.MetaGetFlags)
+				if err != nil {
+					fmt.Printf("metaget error: %v\n", err)
+					return err
+				}
+				_, value, code, err = mc.MetaReceive()
+				if err != nil {
+					fmt.Printf("metaget receive error: %v\n", err)
+					return err
+				}
+			} else {
+				var err error
+				_, value, code, err = mc.Get(key)
+				if err != nil {
+					fmt.Println(err, value)
+					return err
+				}
 			}
 
 			switch code {
-			case client.McHIT:
+			case client.McHIT, client.McVA:
 				stats.GetHits++
 
 				expectedValue := entry.value
@@ -226,8 +301,7 @@ func (conf *Config) Worker(index int, results chan Stats) error {
 					stats.KeyCollisions++
 					fmt.Printf("Unexpected value found for key `%s`\n\tExpected Value: %s\n\tActual Value: %s\n", key, expectedValue, value)
 				}
-
-			case client.McMISS:
+			case client.McMISS, client.McEN:
 				stats.GetMisses++
 			}
 		}

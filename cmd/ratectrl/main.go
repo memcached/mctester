@@ -17,6 +17,10 @@ func main() {
 	keyLength := flag.Int("keylength", 10, "number of random characters to append to key")
 	keyPrefix := flag.String("keyprefix", "mctester:", "prefix to append to all generated keys")
 	keySpace := flag.Int("keyspace", 1000, "number of unique keys to generate")
+	metaDelFlags := flag.String("mdflags", "", "flags sent alongside 'Meta Delete' commands")
+	useMeta := flag.Bool("meta", false, "if true, communicate with Memcached using meta commands")
+	metaGetFlags := flag.String("mgflags", "f v", "flags sent alongside 'Meta Get' commands")
+	metaSetFlags := flag.String("msflags", "", "flags sent alongside 'Meta Set' commands")
 	pipelines := flag.Uint("pipelines", 1, "(32bit unsigned) number of GET requests to stack within the same syscall")
 	delRatio := flag.Int("ratiodel", 0, "proportion of requests that should be sent as 'deletes'")
 	getRatio := flag.Int("ratioget", 90, "proportion of requests that should be sent as 'gets'")
@@ -46,6 +50,9 @@ func main() {
 		KeyPrefix:      *keyPrefix,
 		KeySpace:       *keySpace,
 		KeyTTL:         *keyTTL,
+		MetaDelFlags:   *metaDelFlags,
+		MetaGetFlags:   *metaGetFlags,
+		MetaSetFlags:   *metaSetFlags,
 		Pipelines:      *pipelines,
 		RngSeed:        *rngSeed,
 		RPS:            *rps,
@@ -53,6 +60,7 @@ func main() {
 		SetRatio:       *setRatio,
 		Socket:         *socket,
 		StripKeyPrefix: *stripKeyPrefix,
+		UseMeta:        *useMeta,
 		UseZipf:        *useZipf,
 		ValidateGets:   *validateGets,
 		ValueSize:      *valueSize,

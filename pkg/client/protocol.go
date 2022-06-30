@@ -112,6 +112,7 @@ const (
 	McOK
 	McEN
 	McME
+	McHD
 	McNS
 	McEX
 	McNF
@@ -153,11 +154,10 @@ func (c *Client) ParseMetaResponse() (rflags []byte, value []byte, code McCode, 
 		rflags = line[4+offset : len(line)-2]
 		// Have some value data to read. + 2 bytes for \r\n
 		value = make([]byte, size+2)
-		read, err := io.ReadFull(c.cn.b, value)
+		_, err := io.ReadFull(c.cn.b, value)
 		if err != nil {
 			return nil, nil, 0, err
 		}
-		fmt.Printf("res size: %d read: %d\n", size, read)
 		// check for \r\n, cut extra bytes off.
 		if !bytes.Equal(value[len(value)-2:], []byte("\r\n")) {
 			return nil, nil, 0, ErrCorruptValue
@@ -177,6 +177,9 @@ func (c *Client) ParseMetaResponse() (rflags []byte, value []byte, code McCode, 
 		// Meta Debug command
 		value = line[3 : len(line)-2]
 		code = McME
+	case "HD":
+		// Meta STORED/DELETED
+		code = McHD
 	case "NS":
 		// Meta NOT_STORED
 		rflags = line[3 : len(line)-2]
@@ -260,6 +263,8 @@ func (c *Client) MetaSet(key string, flags string, value []byte) (err error) {
 		b := c.cn.b
 		b.WriteString("ms ")
 		b.WriteString(key)
+		b.WriteString(" ")
+		b.WriteString(strconv.FormatUint(uint64(len(value)), 10))
 		b.WriteString(" ")
 		b.WriteString(flags)
 		b.WriteString("\r\n")
