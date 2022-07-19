@@ -1,4 +1,4 @@
-package mctester
+package client
 
 import (
 	"bytes"
@@ -28,12 +28,12 @@ func newcli() *Client {
 func TestMeta(t *testing.T) {
 	mc := newcli()
 	{
-		err := mc.MetaSet("doob", "S4 T300", []byte("foop"))
+		err := mc.MetaSet("doob", "T300", []byte("foop"))
 		if err != nil {
 			t.Fatalf("metaset error: %v", err)
 		}
 		_, _, c, err := mc.MetaReceive()
-		if c != McOK {
+		if c != McHD {
 			t.Fatalf("metaset not stored: %d", c)
 		}
 	}

@@ -1,4 +1,4 @@
-package mctester
+package internal
 
 //	"github.com/cespare/xxhash"
 import (
